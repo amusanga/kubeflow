@@ -90,7 +90,9 @@ def preprocess_train_deploy(
     train_op = Training("Model Training", preprocess_op.output, tag, bucket, model)
 
     with dsl.Condition(train_op.outputs["accuracy"] > 0.7):
-        deploy_op = Serving("deploy", tag, bucket)
+        deploy_op = Serving("deploy", tag, bucket).apply(
+            gcp.use_gcp_secret("user-gcp-sa")
+        )
 
 
 if __name__ == "__main__":
