@@ -8,9 +8,9 @@ class LoadData(dsl.ContainerOp):
             name=name,
             # image needs to be a compile-time string
             image="gcr.io/<project>/<image-name>/cpu:v1",
-            command=["python3", "run_preprocess.py"],
-            arguments=["--bucket", bucket, "--cutoff_year", cutoff_year, "--kfp"],
-            file_outputs={"blob-path": "/blob_path.txt"},
+            command=["python3", "loadData.py"],
+            # arguments=["--bucket", bucket, "--cutoff_year", cutoff_year, "--kfp"],
+            # file_outputs={"blob-path": "/blob_path.txt"},
         )
 
 
@@ -20,22 +20,22 @@ class Preprocessing(dsl.ContainerOp):
             name=name,
             # image needs to be a compile-time string
             image="gcr.io/<project>/<image-name>/cpu:v1",
-            command=["python3", "run_train.py"],
-            arguments=[
-                "--tag",
-                tag,
-                "--blob_path",
-                blob_path,
-                "--bucket",
-                bucket,
-                "--model",
-                model,
-                "--kfp",
-            ],
-            file_outputs={
-                "mlpipeline_metrics": "/mlpipeline-metrics.json",
-                "accuracy": "/tmp/accuracy",
-            },
+            command=["python3", "preprocessing.py"],
+            # arguments=[
+            #     "--tag",
+            #     tag,
+            #     "--blob_path",
+            #     blob_path,
+            #     "--bucket",
+            #     bucket,
+            #     "--model",
+            #     model,
+            #     "--kfp",
+            # ],
+            # file_outputs={
+            #     "mlpipeline_metrics": "/mlpipeline-metrics.json",
+            #     "accuracy": "/tmp/accuracy",
+            # },
         )
 
 
@@ -45,13 +45,13 @@ class Training(dsl.ContainerOp):
             name=name,
             # image needs to be a compile-time string
             image="gcr.io/<project>/<image-name>/cpu:v1",
-            command=["python3", "run_deploy.py"],
-            arguments=[
-                "--tag",
-                tag,
-                "--bucket",
-                bucket,
-            ],
+            command=["python3", "training.py"],
+            # arguments=[
+            #     "--tag",
+            #     tag,
+            #     "--bucket",
+            #     bucket,
+            # ],
         )
 
 
@@ -61,13 +61,13 @@ class Serving(dsl.ContainerOp):
             name=name,
             # image needs to be a compile-time string
             image="gcr.io/<project>/<image-name>/cpu:v1",
-            command=["python3", "run_deploy.py"],
-            arguments=[
-                "--tag",
-                tag,
-                "--bucket",
-                bucket,
-            ],
+            command=["python3", "serving.py"],
+            # arguments=[
+            #     "--tag",
+            #     tag,
+            #     "--bucket",
+            #     bucket,
+            # ],
         )
 
 
@@ -79,17 +79,18 @@ def preprocess_train_deploy(
     model: str = "DeepModel",
 ):
     """Pipeline to train financial time series model"""
-    preprocess_op = Preprocess("preprocess", bucket, cutoff_year).apply(
-        gcp.use_gcp_secret("user-gcp-sa")
-    )
+
+    LoadData
+
+    preprocess_op = LoadData("Data Logging", bucket, cutoff_year)
+
+    preprocess_op = Preprocessing("Data reprocessing", bucket, cutoff_year)
+
     # pylint: disable=unused-variable
-    train_op = Train("train", preprocess_op.output, tag, bucket, model).apply(
-        gcp.use_gcp_secret("user-gcp-sa")
-    )
+    train_op = Training("Model Training", preprocess_op.output, tag, bucket, model)
+
     with dsl.Condition(train_op.outputs["accuracy"] > 0.7):
-        deploy_op = Deploy("deploy", tag, bucket).apply(
-            gcp.use_gcp_secret("user-gcp-sa")
-        )
+        deploy_op = Serving("deploy", tag, bucket)
 
 
 if __name__ == "__main__":
