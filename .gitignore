@@ -1,1 +1,13 @@
-.yaml
+*.yaml
+*.h5
+*.png
+*.jpg
+data/
+*.pth
+*.csv
+*.7z
+cifar-10/
+.ipynb_checkpoints/
+*.zip
+test/
+./
