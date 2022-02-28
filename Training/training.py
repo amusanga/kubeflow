@@ -3,25 +3,42 @@ import torch.nn.functional as F
 import torch
 import numpy as np
 import h5py
+import torchvision
+import torchvision.transforms as transforms
+import argparse
+from pathlib import Path
+import logging
 
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda:0" if use_cuda else "cpu")
 torch.backends.cudnn.benchmark = True
 
-# trainset_data, trainset_label = np.load(
-#     "/home/aime/kubeflow/LoadData/trainset-data.npy"
-# ), np.load("/home/aime/kubeflow/LoadData/trainset-labels.npy")
-# testset_data, testset_label = np.load(
-#     "/home/aime/kubeflow/LoadData/testset-data.npy"
-# ), np.load("/home/aime/kubeflow/LoadData/testset-labels.npy")
+logging.getLogger().setLevel(logging.INFO)
+parser = argparse.ArgumentParser(description="CiFar10 Data Loading")
 
-filename = "/home/aime/kubeflow/LoadData/Dataset.h5"
+parser.add_argument(
+    "--output-path",
+    type=str,
+    help="Path of the local file where the cifar data should be written.",
+)
+parser.add_argument(
+    "--input-path",
+    type=str,
+    help="Path of the local file where the Output 1 data should be written.",
+)
 
-with h5py.File(filename, "r") as file:
-    trainset_data = np.array(file.get("trainset-data"))
-    trainset_labels = np.array(file.get("trainset-labels"))
-    testset_data = np.array(file.get("testset-data"))
-    testset_labels = np.array(file.get("testset-labels"))
+args = parser.parse_args()
+
+OUTPUTDIR = args.output_path
+INPUTDIR = args.input_path
+
+Path(OUTPUTDIR).parent.mkdir(parents=True, exist_ok=True)
+
+with h5py.File(INPUTDIR, "r") as file:
+    trainset_data = np.array(file.get("trainset-data")).astype(np.float32)
+    trainset_labels = np.array(file.get("trainset-labels")).astype(np.float32)
+    testset_data = np.array(file.get("testset-data")).astype(np.float32)
+    testset_labels = np.array(file.get("testset-labels")).astype(np.float32)
 
 file.close()
 
@@ -45,17 +62,28 @@ class Dataset(torch.utils.data.Dataset):
         return X, y
 
 
+def default_collate(batch):
+    data, labels = zip(*batch)
+    data, labels = np.array(data), np.array(labels)
+    data = torch.from_numpy(data).float()
+    labels = torch.from_numpy(labels).long()
+    return data, labels
+
+
 trainData = Dataset(trainset_data, trainset_labels)
 
 testData = Dataset(testset_data, testset_labels)
 
 trainloader = torch.utils.data.DataLoader(
-    trainData, batch_size=4, shuffle=True, num_workers=2
+    trainData, batch_size=4, shuffle=True, num_workers=2, collate_fn=default_collate
 )
 
 testloader = torch.utils.data.DataLoader(
-    testData, batch_size=4, shuffle=True, num_workers=2
+    testData, batch_size=4, shuffle=True, num_workers=2, collate_fn=default_collate
 )
+
+print("********************************")
+print(trainloader)
 
 
 class Net(nn.Module):
@@ -86,7 +114,7 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
 
-for epoch in range(2):  # loop over the dataset multiple times
+for epoch in range(5):  # loop over the dataset multiple times
 
     running_loss = 0.0
     for i, data in enumerate(trainloader, 0):
@@ -110,7 +138,7 @@ for epoch in range(2):  # loop over the dataset multiple times
 
 print("Finished Training")
 
-PATH = "./cifar_net.pth"
+PATH = OUTPUTDIR + "/cifar_net.pth"
 torch.save(net.state_dict(), PATH)
 
 net = Net()

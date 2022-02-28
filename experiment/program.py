@@ -41,4 +41,6 @@ parser.add_argument(
 args = parser.parse_args()
 
 Path(args.outputPath).parent.mkdir(parents=True, exist_ok=True)
-loadData(args.outputPath)
+
+with open(args.outputPath, "w") as output1_file:
+    loadData(output1_file)
