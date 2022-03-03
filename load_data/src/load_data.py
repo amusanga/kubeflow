@@ -35,9 +35,7 @@ if __name__ == "__main__":
     filename = "data/im.jpg"
 
     cv2.imwrite(filename, face_image_cv2)
-    print(face_image_cv2.shape)
-    ## print(face_image_cv2.tolist())
-    print(len(face_image_cv2.tolist()))
+
     dirs = {
         "data": filename,
     }
